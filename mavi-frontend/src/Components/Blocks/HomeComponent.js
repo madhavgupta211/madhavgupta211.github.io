@@ -1,7 +1,9 @@
 import React from 'react';
-import blueground from '../../blueground.png';
+import blueground from '../../RoomAssets/blueground.png';
 import styled from 'styled-components';
-import mavitable from '../../mavitable.png';
+import Table from '../Containers/tableComponent.js';
+import MLaptop from '../Atoms/MLaptopComponent';
+import VLaptop from '../Atoms/VLaptopComponent'
 
 const Container = styled.div`
     overflow-x: hidden;
@@ -25,31 +27,15 @@ const Blueground = styled.div`
     background-size: cover;
 `
 
-const Table = styled.div`
-    width: 100%;
-    overflow-x: hidden;
-    margin-left: auto;
-    margin-right: auto;
-    max-width: 1300px;
-    min-height: 250px;
-    z-index: 1;
-    height: 45%;
-    position: absolute;
-    left: 0px;
-    right: 0px;
-    bottom: 0px;
-    display: block;
-    background-image: url(${mavitable});
-    background-position: bottom center;
-    background-size: cover;
-`
-
 export default function Home () {
     return(
         <Container>
             <Roof>
                 <Blueground />
-                <Table />
+                <Table>
+                    <VLaptop />
+                    <MLaptop />
+                </Table>
             </Roof>
         </Container>
     );
