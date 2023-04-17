@@ -1,9 +1,10 @@
 import React from 'react';
 import { Routes, Route } from 'react-router-dom';
+import GoogleLogin from 'react-google-login';
 import Home from './Components/Blocks/HomeComponent';
 import './App.css';
 
-function App (){
+function App () {
   return (
     <div>
       <Routes>
