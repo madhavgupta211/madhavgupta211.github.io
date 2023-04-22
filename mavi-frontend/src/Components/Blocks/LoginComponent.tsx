@@ -23,17 +23,14 @@ const ContentBox = styled.div`
 
 const Login = (): JSX.Element => {
   const [isLoggedIn, setIsLoggedIn] = React.useState<Boolean>(false);
+  const [oAuthToken, setoAuthToken] = React.useState<string>("");
   const [userData, setUserData] =
     React.useState<ProfileObjT>(DEFAULT_PROFILE_OBJ);
   const [errorMsg, setErrMsg] = React.useState<string>("");
 
   const handleLoginSuccess = (credentialResponse: CredentialResponse) => {
     if (credentialResponse.credential) {
-      const decode: ProfileObjT = jwt_decode<ProfileObjT>(
-        credentialResponse.credential
-      );
-      setIsLoggedIn(true);
-      setUserData(decode);
+      setoAuthToken(credentialResponse.credential);
     } else {
       setIsLoggedIn(false);
       setUserData(DEFAULT_PROFILE_OBJ);
@@ -46,6 +43,43 @@ const Login = (): JSX.Element => {
     setUserData(DEFAULT_PROFILE_OBJ);
     setErrMsg("Sign in unsuccessful");
   };
+
+  React.useEffect(() => {
+    if (oAuthToken !== "") {
+      console.log(oAuthToken);
+      const verifyAuthToken = async () => {
+        try {
+          const decode: ProfileObjT = jwt_decode<ProfileObjT>(oAuthToken);
+          const response = await fetch("api/ping", {
+            headers: {
+              Authorization: decode.email,
+            },
+          });
+
+          if (response.ok) {
+            setIsLoggedIn(true);
+            setUserData(decode);
+            setErrMsg("");
+          } else if (response.status === 401) {
+            setIsLoggedIn(false);
+            setUserData(DEFAULT_PROFILE_OBJ);
+            setErrMsg("Access denied");
+          } else {
+            setIsLoggedIn(false);
+            setUserData(DEFAULT_PROFILE_OBJ);
+            console.log(response);
+            setErrMsg("Internal server error");
+          }
+        } catch (error) {
+          setIsLoggedIn(false);
+          setUserData(DEFAULT_PROFILE_OBJ);
+          setErrMsg("Could not verify user details from server");
+        }
+      };
+
+      verifyAuthToken();
+    }
+  }, [oAuthToken]);
 
   return (
     <React.Fragment>
@@ -61,6 +95,7 @@ const Login = (): JSX.Element => {
             >
               Mavi
             </h1>
+            <p style={{ color: "red" }}>{errorMsg}</p>
             <p>Not for everyone to access</p>
             <GoogleLogin
               onSuccess={handleLoginSuccess}

@@ -1,66 +1,121 @@
 package main
 
 import (
+	"fmt"
+	"io/ioutil"
 	"net/http"
+	"strings"
 
+	"github.com/gin-gonic/contrib/static"
 	"github.com/gin-gonic/gin"
 )
 
-// album represents data about a record album.
-type album struct {
-	ID     string  `json:"id"`
-	Title  string  `json:"title"`
-	Artist string  `json:"artist"`
-	Price  float64 `json:"price"`
+var whitelist map[string]bool
+
+func setupRouter() *gin.Engine {
+
+	r := gin.Default()
+
+	r.Use(static.Serve("/", static.LocalFile("./mavi-frontend/build", true)))
+
+	r.GET("/ping", func(c *gin.Context) {
+		c.String(http.StatusOK, "pong")
+	})
+
+	api := r.Group("/api")
+
+	api.Use(func(c *gin.Context) {
+		oauthToken := c.Query("oauth_token")
+		if oauthToken == "" {
+			oauthToken = c.GetHeader("Authorization")
+		}
+
+		if oauthToken == "" {
+			// Return an error response if OAuth token is missing
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "OAuth token is required"})
+			c.Abort()
+			return
+		}
+
+		// fmt.Print("till her")
+
+		// // Create a new OAuth2 Service instance
+		// srv, err := oauth2.NewService(c)
+		// if err != nil {
+		// 	fmt.Println(err)
+		// 	// Return an error response if failed to create OAuth2 service
+		// 	c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create OAuth2 service"})
+		// 	c.Abort()
+		// 	return
+		// }
+
+		// fmt.Print("till here")
+
+		// // Call the tokeninfo endpoint to verify the token
+		// tokenInfo, err := srv.Tokeninfo().IdToken(oauthToken).Do()
+		// if err != nil {
+		// 	// Return an error response if failed to verify token
+		// 	c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid OAuth token"})
+		// 	c.Abort()
+		// 	return
+		// }
+
+		// fmt.Print("till here 2")
+
+		// Access the fields in the tokenInfo response
+		// You can add your custom logic here based on the tokenInfo response
+		// Check if the email is whitelisted
+		email := oauthToken
+		if !isEmailWhitelisted(email) {
+			// Return an error response if email is not whitelisted
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Access denied"})
+			c.Abort()
+			return
+		}
+
+		fmt.Print("till here 3")
+
+		// Set tokenInfo in Gin context for other handlers to access
+		c.Set("email", email)
+
+		// Continue to the next handler
+		c.Next()
+	})
+
+	api.GET("/ping", func(c *gin.Context) {
+		email, _ := c.Get("email")
+		c.JSON(http.StatusOK, gin.H{"message": fmt.Sprintf("Hello, %s!", email)})
+	})
+
+	return r
 }
 
-// albums slice to seed record album data.
-var albums = []album{
-	{ID: "1", Title: "Blue Train", Artist: "John Coltrane", Price: 56.99},
-	{ID: "2", Title: "Jeru", Artist: "Gerry Mulligan", Price: 17.99},
-	{ID: "3", Title: "Sarah Vaughan and Clifford Brown", Artist: "Sarah Vaughan", Price: 39.99},
-}
-
-func main() {
-	router := gin.Default()
-	router.GET("/albums", getAlbums)
-	router.POST("/albums", postAlbums)
-	router.GET("/albums/:id", getAlbumByID)
-	router.Run("localhost:8080")
-}
-
-// getAlbums responds with the list of all albums as JSON.
-func getAlbums(c *gin.Context) {
-	c.IndentedJSON(http.StatusOK, albums)
-}
-
-// postAlbums adds an album from JSON received in the request body.
-func postAlbums(c *gin.Context) {
-	var newAlbum album
-
-	// Call BindJSON to bind the received JSON to
-	// newAlbum.
-	if err := c.BindJSON(&newAlbum); err != nil {
+func loadWhitelist() {
+	// Read the config file
+	data, err := ioutil.ReadFile("whitelist.txt")
+	if err != nil {
+		fmt.Println("Failed to read whitelist config file:", err)
 		return
 	}
 
-	// Add the new album to the slice.
-	albums = append(albums, newAlbum)
-	c.IndentedJSON(http.StatusCreated, newAlbum)
-}
-
-// getAlbumByID locates the album whose ID value matches the id
-// parameter sent by the client, then returns that album as a response.
-func getAlbumByID(c *gin.Context) {
-	id := c.Param("id")
-
-	// Loop over the list of albums, looking for
-	// an album whose ID value matches the parameter.
-	for _, a := range albums {
-		if a.ID == id {
-			c.IndentedJSON(http.StatusOK, a)
-			return
+	// Parse the config file
+	whitelist = make(map[string]bool)
+	emails := strings.Split(string(data), "\n")
+	for _, email := range emails {
+		if email != "" {
+			whitelist[email] = true
 		}
 	}
-	c.IndentedJSON(http.StatusNotFound, gin.H{"message": "album not found"})
+}
+
+func isEmailWhitelisted(email string) bool {
+	// Check if the email is whitelisted
+	_, ok := whitelist[email]
+	return ok
+}
+
+func main() {
+	loadWhitelist()
+	router := setupRouter()
+	router.Run(":8080")
 }
